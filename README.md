@@ -13,6 +13,7 @@ Une application web pour accorder votre guitare directement depuis votre navigat
 - Indicateur de volume sonore
 - Interface utilisateur intuitive avec aiguille d'accordage
 - Référence des fréquences standards pour les six cordes de guitare
+- **Nouveau** : Génération des notes de référence pour chaque corde avec un simple clic
 
 ## Prérequis techniques
 
@@ -52,6 +53,17 @@ Une application web pour accorder votre guitare directement depuis votre navigat
 5. Ajustez la tension de la corde jusqu'à ce que l'aiguille soit centrée et que l'indicateur affiche "Accordé!"
 6. Répétez pour les autres cordes
 
+### Utilisation de la génération des notes de référence
+
+1. Dans la section "Cordes Standard" au bas de l'interface, cliquez sur n'importe quelle note (E2, A2, D3, G3, B3 ou E4)
+2. Un son de référence correspondant exactement à la fréquence de cette corde sera joué
+3. Ajustez votre corde de guitare jusqu'à ce que sa sonorité corresponde au son de référence
+4. Pour arrêter la lecture du son, cliquez à nouveau sur la même note ou utilisez le bouton "Arrêter le son"
+5. Cette fonctionnalité est particulièrement utile pour :
+   - Les environnements bruyants où la détection par microphone est difficile
+   - L'accordage à l'oreille pour les musiciens plus expérimentés
+   - La comparaison directe entre votre corde et la note de référence parfaite
+
 ## Technologies utilisées
 
 - [React](https://reactjs.org/) - Framework JavaScript pour l'interface utilisateur
@@ -75,7 +87,11 @@ Une application web pour accorder votre guitare directement depuis votre navigat
 
 ## Comment ça marche
 
+### Détection des notes
 L'application utilise l'API Web Audio via Tone.js pour accéder au microphone, analyser le signal audio entrant et déterminer la fréquence fondamentale à l'aide d'une transformation de Fourier rapide (FFT). La fréquence détectée est ensuite comparée aux fréquences standard des cordes de guitare pour déterminer la note la plus proche et calculer l'écart en cents.
+
+### Génération des sons de référence
+L'application utilise le synthétiseur intégré de Tone.js (Tone.Synth) pour générer des ondes sonores précises correspondant exactement aux fréquences des cordes de guitare standard. Un oscillateur de type "triangle" est utilisé pour produire un son plus doux et naturel qui se rapproche de celui d'une corde de guitare. Les paramètres d'enveloppe ADSR (Attack, Decay, Sustain, Release) sont optimisés pour simuler la résonance d'une corde de guitare.
 
 ### Fréquences standards des cordes (accordage standard E)
 
@@ -97,6 +113,12 @@ L'application utilise l'API Web Audio via Tone.js pour accéder au microphone, a
 - Jouez les cordes une par une, dans un environnement calme
 - Approchez le microphone de la guitare
 - Assurez-vous que le volume détecté est suffisant (visible sur l'indicateur)
+
+### Les sons de référence ne sont pas joués
+- Assurez-vous que le son de votre navigateur est activé et que le volume est suffisant
+- Le premier clic peut prendre un court instant pour initialiser l'API Web Audio
+- Vérifiez que vous n'avez pas de bloqueurs de sons automatiques dans votre navigateur
+- Si vous utilisez Safari, assurez-vous que les autorisations pour l'audio sont activées
 
 ### Les styles ne s'affichent pas correctement
 - Assurez-vous que Tailwind CSS est correctement configuré

@@ -192,11 +192,66 @@ const GuitarTuner: React.FC = () => {
   const lastStableFreqRef = useRef<number>(0);
   const stableCounterRef = useRef<number>(0);
 
+  // Ajout du synthétiseur pour jouer les notes
+  const synthRef = useRef<Tone.Synth | null>(null);
+  const [playingNote, setPlayingNote] = useState<string | null>(null);
+
+  // Initialisation du synthétiseur
+  useEffect(() => {
+    // Créer le synthétiseur une fois au chargement
+    synthRef.current = new Tone.Synth({
+      oscillator: {
+        type: 'triangle'  // Un son plus doux qui ressemble à une corde de guitare
+      },
+      envelope: {
+        attack: 0.005,    // Attaque rapide
+        decay: 0.1,       // Decay court
+        sustain: 0.3,     // Sustain modéré
+        release: 2        // Relâchement lent pour simuler la résonance de la guitare
+      }
+    }).toDestination();
+
+    // Nettoyer le synthétiseur au démontage
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.dispose();
+        synthRef.current = null;
+      }
+    };
+  }, []);
+
+  // Fonction pour jouer une note
+  const playNote = (note: string, frequency: number): void => {
+    // Arrêter la note précédente si elle est en cours
+    if (playingNote && synthRef.current) {
+      synthRef.current.triggerRelease();
+    }
+
+    // Démarrer Tone.js au premier clic (requis par navigateurs pour interaction utilisateur)
+    if (Tone.context.state !== 'running') {
+      Tone.start().catch(err => console.error("Erreur lors du démarrage de Tone.js:", err));
+    }
+
+    // Jouer la nouvelle note
+    if (synthRef.current) {
+      synthRef.current.triggerAttack(frequency);
+      setPlayingNote(note);
+    }
+  };
+
+  // Fonction pour arrêter la lecture
+  const stopNote = (): void => {
+    if (playingNote && synthRef.current) {
+      synthRef.current.triggerRelease();
+      setPlayingNote(null);
+    }
+  };
+
   // Initialiser l'analyseur de fréquence et le microphone
   const initAudio = async (): Promise<void> => {
     // Réinitialiser l'état avant de commencer
     setError(null);
-    setIsListening(true); // Mettre à false au début, puis true si succès
+    setIsListening(false); // Mettre à false au début, puis true si succès
     setTuningStatus('waiting');
     setDetectedNote(null);
     setDetectedFreq(0);
@@ -376,9 +431,6 @@ const GuitarTuner: React.FC = () => {
       console.error("Erreur lors de l'initialisation audio:", initError);
       setError(initError instanceof Error ? initError.message : "Erreur inconnue lors de l'accès au microphone.");
       stopAudio(); // Assurer l'arrêt propre en cas d'erreur d'init
-    } finally {
-        // *** Assurer que l'état d'initialisation est réinitialisé quoiqu'il arrive ***
-        setIsListening(false);
     }
   };
   
@@ -439,6 +491,10 @@ const GuitarTuner: React.FC = () => {
     // Cette fonction de retour est exécutée lorsque le composant est démonté
     return () => {
       stopAudio();
+      // Arrêter la lecture de note si en cours
+      if (playingNote && synthRef.current) {
+        synthRef.current.triggerRelease();
+      }
     };
   }, []); // Le tableau vide signifie que l'effet ne s'exécute qu'au montage et le cleanup au démontage
   
@@ -523,7 +579,7 @@ const GuitarTuner: React.FC = () => {
             className={`px-8 py-3 rounded-full font-semibold text-lg text-white transition-all duration-200 ease-in-out transform hover:scale-105 ${
               isListening ? 'bg-red-600 hover:bg-red-700 shadow-md' : 'bg-blue-600 hover:bg-blue-700 shadow-md'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={isListening || (isListening && !micRef.current)} // Désactiver si init en cours OU si écoutant mais mic pas prêt (edge case)
+            disabled={false} // Simplifié pour éviter des cas limites
           >
             {isListening ? "Arrêter l'écoute" : "Démarrer l'écoute"}
           </button>
@@ -548,86 +604,107 @@ const GuitarTuner: React.FC = () => {
             <div className="text-xs mt-1 text-gray-500 h-4">
               Volume: {getVolumeText()} ({isFinite(volume) ? Math.round(volume) : '-'} dB)
             </div>
-          )}
-        </div>
-        
-        {/* Indicateur Visuel d'Accordage */}
-        <div className="relative h-28 mb-6 flex flex-col justify-end items-center">
-             {/* Statut textuel au-dessus */}
-             <div className={`absolute top-0 left-0 right-0 text-center h-8 font-semibold text-lg ${getIndicatorStyle().colorClass}`}>
-                 {getIndicatorStyle().text}
-                 <span className="text-sm ml-1 font-normal">{getIndicatorStyle().detail}</span>
-             </div>
-          
-            {/* Échelle Visuelle */}
-            <div className="relative w-full h-10 mb-2 bg-gradient-to-r from-red-100 via-green-100 to-red-100 rounded-lg overflow-hidden border border-gray-300 shadow-inner">
-                {/* Zone verte centrale (plus subtile) */}
-                <div 
-                  className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 bg-green-200 opacity-70" 
-                  // Largeur basée sur CENTS_PRECISION (ex: 5 cents => 10% de l'échelle de +/- 50)
-                  style={{ width: `${(CENTS_PRECISION * 2 / 100) * 100}%` }} 
-                ></div>
-                {/* Marqueurs */}
-                <div className="absolute inset-0"> {renderMarkers()} </div>
-                
-                {/* Aiguille */}
-                {tuningStatus !== 'waiting' && isFinite(cents) && (
+            )}
+            </div>
+            
+            {/* Indicateur Visuel d'Accordage */}
+            <div className="relative h-28 mb-6 flex flex-col justify-end items-center">
+                 {/* Statut textuel au-dessus */}
+                 <div className={`absolute top-0 left-0 right-0 text-center h-8 font-semibold text-lg ${getIndicatorStyle().colorClass}`}>
+                     {getIndicatorStyle().text}
+                     <span className="text-sm ml-1 font-normal">{getIndicatorStyle().detail}</span>
+                 </div>
+              
+                {/* Échelle Visuelle */}
+                <div className="relative w-full h-10 mb-2 bg-gradient-to-r from-red-100 via-green-100 to-red-100 rounded-lg overflow-hidden border border-gray-300 shadow-inner">
+                    {/* Zone verte centrale (plus subtile) */}
                     <div 
-                        className={`absolute bottom-0 left-1/2 w-1.5 h-full origin-bottom ${needleColorClass} transition-transform duration-100 ease-linear rounded-t-sm`}
-                        style={{ 
-                            transform: `translateX(-50%) ${needleRotation()}`,
-                            boxShadow: '0 0 8px rgba(0,0,0,0.3)', 
-                        }}
-                    >
-                       {/* Petit cercle à la base */}
-                       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gray-600 rounded-full border-2 border-white"></div>
+                      className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 bg-green-200 opacity-70" 
+                      // Largeur basée sur CENTS_PRECISION (ex: 5 cents => 10% de l'échelle de +/- 50)
+                      style={{ width: `${(CENTS_PRECISION * 2 / 100) * 100}%` }} 
+                    ></div>
+                    {/* Marqueurs */}
+                    <div className="absolute inset-0"> {renderMarkers()} </div>
+                    
+                    {/* Aiguille */}
+                    {tuningStatus !== 'waiting' && isFinite(cents) && (
+                        <div 
+                            className={`absolute bottom-0 left-1/2 w-1.5 h-full origin-bottom ${needleColorClass} transition-transform duration-100 ease-linear rounded-t-sm`}
+                            style={{ 
+                                transform: `translateX(-50%) ${needleRotation()}`,
+                                boxShadow: '0 0 8px rgba(0,0,0,0.3)', 
+                            }}
+                        >
+                           {/* Petit cercle à la base */}
+                           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gray-600 rounded-full border-2 border-white"></div>
+                        </div>
+                    )}
+                </div>
+               
+                {/* Légendes sous l'échelle */}
+                <div className="relative w-full text-xs text-gray-500 flex justify-between px-1 mt-1">
+                     <span>Grave (-50c)</span>
+                     <span className="font-bold text-blue-600">Juste</span>
+                     <span>Aigu (+50c)</span>
+                 </div>
+            </div>
+            
+            {/* Barre de Volume */}
+            <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden my-6 border border-gray-300">
+              <div 
+                  className="h-full bg-gradient-to-r from-green-300 via-yellow-300 to-red-400 transition-all duration-100 ease-linear"
+                  // Normaliser le volume: -60dB (faible) à -10dB (fort) -> 0% à 100%
+                  style={{ width: `${Math.max(0, Math.min(100, (volume - VOLUME_THRESHOLD) / (-10 - VOLUME_THRESHOLD) * 100))}%` }} 
+              ></div>
+            </div>
+    
+            {/* Liste des Cordes Standard avec génération de sons */}
+            <div className="text-center text-sm font-semibold mb-2 text-gray-700">Cordes Standard</div>
+            <div className="grid grid-cols-6 gap-2 text-center"> 
+              {Object.entries(GUITAR_STRINGS).reverse().map(([note, freq]) => ( // Afficher E2 à gauche
+                <div 
+                  key={note}
+                  className={`p-2 rounded border transition-colors duration-200 cursor-pointer ${
+                    detectedNote === note 
+                    ? 'bg-blue-100 border-blue-400 font-bold ring-2 ring-blue-300' 
+                    : playingNote === note
+                    ? 'bg-green-100 border-green-400 font-bold ring-2 ring-green-300'
+                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  }`}
+                  onClick={() => playingNote === note ? stopNote() : playNote(note, freq)}
+                >
+                  <div className="text-lg">{note}</div>
+                  <div className="text-xs text-gray-500">{freq.toFixed(1)} Hz</div>
+                  {playingNote === note && (
+                    <div className="mt-1 text-xs text-green-600 font-medium">
+                      ♪ Joue ♪
                     </div>
-                )}
+                  )}
+                </div>
+              ))}
             </div>
-           
-            {/* Légendes sous l'échelle */}
-            <div className="relative w-full text-xs text-gray-500 flex justify-between px-1 mt-1">
-                 <span>Grave (-50c)</span>
-                 <span className="font-bold text-blue-600">Juste</span>
-                 <span>Aigu (+50c)</span>
-             </div>
+            
+            {/* Bouton pour arrêter toute lecture de son */}
+            {playingNote && (
+              <div className="mt-4 flex justify-center">
+                <button 
+                  onClick={stopNote}
+                  className="px-4 py-2 rounded-md bg-red-500 text-white font-medium hover:bg-red-600 transition-colors shadow-sm"
+                >
+                  Arrêter le son
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Instructions / Conseils */}
+          <div className="mt-6 text-sm text-gray-600 text-center max-w-md px-4">
+            <p>Conseils: Pincez la corde clairement près du micro et laissez-la résonner. Évitez les bruits forts.</p>
+            <p>L'aiguille et la couleur indiquent si la note est juste (<span className="text-green-600 font-semibold">Accordé</span>), <span className="text-yellow-600 font-semibold">proche</span>, <span className="text-red-600 font-semibold">trop grave</span> ou <span className="text-red-600 font-semibold">trop aiguë</span>.</p>
+            <p className="mt-2">Cliquez sur une note de la grille pour l'entendre et accordez votre guitare en fonction.</p>
+          </div>
         </div>
-        
-        {/* Barre de Volume */}
-        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden my-6 border border-gray-300">
-          <div 
-              className="h-full bg-gradient-to-r from-green-300 via-yellow-300 to-red-400 transition-all duration-100 ease-linear"
-              // Normaliser le volume: -60dB (faible) à -10dB (fort) -> 0% à 100%
-              style={{ width: `${Math.max(0, Math.min(100, (volume - VOLUME_THRESHOLD) / (-10 - VOLUME_THRESHOLD) * 100))}%` }} 
-          ></div>
-        </div>
-
-        {/* Liste des Cordes Standard */}
-        <div className="text-center text-sm font-semibold mb-2 text-gray-700">Cordes Standard</div>
-        <div className="grid grid-cols-6 gap-2 text-center"> 
-          {Object.entries(GUITAR_STRINGS).reverse().map(([note, freq]) => ( // Afficher E2 à gauche
-            <div 
-              key={note}
-              className={`p-2 rounded border transition-colors duration-200 ${
-                detectedNote === note 
-                ? 'bg-blue-100 border-blue-400 font-bold ring-2 ring-blue-300' 
-                : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              <div className="text-lg">{note}</div>
-              <div className="text-xs text-gray-500">{freq.toFixed(1)} Hz</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Instructions / Conseils */}
-      <div className="mt-6 text-sm text-gray-600 text-center max-w-md px-4">
-        <p>Conseils: Pincez la corde clairement près du micro et laissez-la résonner. Évitez les bruits forts.</p>
-        <p>L'aiguille et la couleur indiquent si la note est juste (<span className="text-green-600 font-semibold">Accordé</span>), <span className="text-yellow-600 font-semibold">proche</span>, <span className="text-red-600 font-semibold">trop grave</span> ou <span className="text-red-600 font-semibold">trop aiguë</span>.</p>
-      </div>
-    </div>
-  );
-};
-
-export default GuitarTuner;
+      );
+    };
+    
+    export default GuitarTuner;
