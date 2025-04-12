@@ -629,10 +629,10 @@ const GuitarTuner: React.FC = () => {
                     {/* Aiguille */}
                     {tuningStatus !== 'waiting' && isFinite(cents) && (
                         <div 
-                            className={`absolute bottom-0 left-1/2 w-1.5 h-full origin-bottom ${needleColorClass} transition-transform duration-100 ease-linear rounded-t-sm`}
+                            className={`absolute bottom-0 left-1/2 w-1.5 h-9 origin-bottom ${needleColorClass} transition-transform duration-100 ease-linear rounded-t-sm`}
                             style={{ 
                                 transform: `translateX(-50%) ${needleRotation()}`,
-                                boxShadow: '0 0 8px rgba(0,0,0,0.3)', 
+                                boxShadow: '0 0 7px rgba(0,0,0,0.8)', 
                             }}
                         >
                            {/* Petit cercle à la base */}
