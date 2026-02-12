@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guitar Tuner - Folk (Preview)</title>
+<style>
+:root {
+  --bg-primary: #0a0a14;
+  --bg-secondary: #12121e;
+  --bg-card: #1a1a2e;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #4a5568;
+  --accent-green: #4ade80;
+  --accent-yellow: #fbbf24;
+  --accent-red: #f87171;
+  --accent-blue: #60a5fa;
+  --border-color: #2a2a4a;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; width:100%; overflow:hidden; }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tuner-app {
+  display:flex; flex-direction:column; align-items:center;
+  min-height:100vh; max-width:480px; margin:0 auto;
+  padding:16px 16px 24px;
+  background: linear-gradient(180deg, #0d0d1a 0%, #0a0a14 30%, #080812 100%);
+  gap:8px; overflow-y:auto;
+}
+
+.tuner-header { display:flex; align-items:center; justify-content:center; gap:10px; padding:8px 0 4px; }
+.tuner-title { font-size:20px; font-weight:700; letter-spacing:1px; }
+.tuner-badge {
+  background:linear-gradient(135deg,#2a1c0e,#3a2815); color:#c4a65a;
+  font-size:10px; font-weight:700; padding:3px 10px; border-radius:12px;
+  letter-spacing:2px; text-transform:uppercase; border:1px solid #4a3520;
+}
+
+.pitch-indicator { width:100%; max-width:400px; margin:-8px auto -20px; }
+.pitch-svg { width:100%; height:auto; }
+
+.headstock-container { width:100%; max-width:320px; margin:-16px auto -8px; }
+.headstock-svg { width:100%; height:auto; }
+
+.peg-group { cursor:pointer; }
+.peg-group:hover .peg-button { filter:brightness(1.15); }
+
+@keyframes glowPulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+.tuned-glow { animation: glowPulse 1.5s ease-in-out infinite; }
+
+.string-buttons { display:flex; justify-content:center; gap:8px; width:100%; padding:0 8px; }
+.string-btn {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  width:48px; height:56px; border-radius:12px; border:1.5px solid var(--border-color);
+  background:var(--bg-card); color:var(--text-secondary); cursor:pointer; transition:all 0.2s;
+}
+.string-btn:hover { border-color:#3a3a5a; background:#1e1e35; transform:translateY(-1px); }
+.string-btn.tuned {
+  border-color:var(--accent-green); background:rgba(74,222,128,0.1);
+  color:var(--accent-green); box-shadow:0 0 16px rgba(74,222,128,0.2);
+}
+.string-btn.detected {
+  border-color:var(--accent-yellow); background:rgba(251,191,36,0.1);
+  color:var(--accent-yellow); box-shadow:0 0 12px rgba(251,191,36,0.15);
+}
+.string-btn-note { font-size:16px; font-weight:700; line-height:1; }
+.string-btn-freq { font-size:9px; opacity:0.6; margin-top:2px; }
+
+.control-btn {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:200px; height:52px; border-radius:26px; border:none;
+  font-size:16px; font-weight:600; cursor:pointer; color:white;
+  background:linear-gradient(135deg,#ef4444,#dc2626);
+  box-shadow:0 4px 20px rgba(239,68,68,0.3),inset 0 1px 0 rgba(255,255,255,0.1);
+  margin-top:4px; animation: listeningPulse 2s ease-in-out infinite;
+}
+@keyframes listeningPulse {
+  0%,100% { box-shadow:0 4px 20px rgba(239,68,68,0.3),inset 0 1px 0 rgba(255,255,255,0.1); }
+  50% { box-shadow:0 4px 30px rgba(239,68,68,0.5),inset 0 1px 0 rgba(255,255,255,0.1); }
+}
+
+.volume-bar-container { display:flex; flex-direction:column; align-items:center; gap:4px; width:80%; max-width:300px; margin-top:4px; }
+.volume-bar { width:100%; height:4px; background:var(--bg-card); border-radius:2px; overflow:hidden; }
+.volume-fill { height:100%; width:65%; border-radius:2px; background:linear-gradient(90deg,var(--accent-green),var(--accent-yellow),var(--accent-red)); }
+.volume-label { font-size:11px; color:var(--text-muted); }
+
+.mode-indicator { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted); margin-top:4px; }
+.mode-dot { width:6px; height:6px; border-radius:50%; background:var(--accent-green); box-shadow:0 0 8px rgba(74,222,128,0.5); animation:dotPulse 2s ease-in-out infinite; }
+@keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.preview-label {
+  position:fixed; top:8px; right:8px; background:rgba(251,191,36,0.15);
+  color:#fbbf24; font-size:10px; padding:4px 10px; border-radius:8px;
+  border:1px solid rgba(251,191,36,0.3); z-index:100; letter-spacing:1px;
+}
+</style>
+</head>
+<body>
+
+<div class="preview-label">PREVIEW - Simulation G3 detected</div>
+
+<div class="tuner-app">
+  <!-- Header -->
+  <header class="tuner-header">
+    <h1 class="tuner-title">Guitar Tuner</h1>
+    <span class="tuner-badge">Folk</span>
+  </header>
+
+  <!-- Pitch Indicator -->
+  <div class="pitch-indicator">
+    <svg viewBox="0 0 400 260" class="pitch-svg">
+      <defs>
+        <filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="strongGlow"><feGaussianBlur stdDeviation="8" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+
+      <!-- Tick marks -->
+      <g id="ticks"></g>
+
+      <!-- Center green zone -->
+      <path d="M 193.03,41.17 A 156 156 0 0 1 206.97,41.17 L 207.41,40.73 A 164 164 0 0 0 192.59,40.73 Z" fill="#4ade80" opacity="0.9" filter="url(#glow)"/>
+
+      <!-- Flat / Sharp labels -->
+      <text x="62" y="195" text-anchor="middle" fill="#6b7280" font-size="11" font-family="system-ui">&#9837;</text>
+      <text x="338" y="195" text-anchor="middle" fill="#6b7280" font-size="11" font-family="system-ui">&#9839;</text>
+
+      <!-- Needle - slightly sharp (simulating G3 detection with -3 cents) -->
+      <g filter="url(#glow)">
+        <line x1="200" y1="200" x2="197" y2="72" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round">
+          <animateTransform attributeName="transform" type="rotate" from="1 200 200" to="-1 200 200" dur="2s" repeatCount="indefinite" additive="sum"/>
+        </line>
+        <circle cx="197" cy="72" r="5" fill="#4ade80">
+          <animateTransform attributeName="transform" type="rotate" from="1 200 200" to="-1 200 200" dur="2s" repeatCount="indefinite" additive="sum"/>
+        </circle>
+      </g>
+
+      <!-- Center hub -->
+      <circle cx="200" cy="200" r="8" fill="#1a1a2e" stroke="#2a2a4a" stroke-width="2"/>
+      <circle cx="200" cy="200" r="4" fill="#4ade80"/>
+
+      <!-- Note display -->
+      <text x="200" y="255" text-anchor="middle" fill="#4ade80" font-size="48" font-weight="bold" font-family="system-ui" filter="url(#glow)">G</text>
+      <text x="200" y="280" text-anchor="middle" fill="#6b7280" font-size="13" font-family="system-ui">196.2 Hz</text>
+      <text x="200" y="300" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="600" font-family="system-ui">-2 cents</text>
+      <text x="200" y="318" text-anchor="middle" fill="#4a5568" font-size="10" font-family="system-ui">cible: 196.0 Hz</text>
+
+      <!-- Tuned badge -->
+      <g filter="url(#strongGlow)">
+        <circle cx="200" cy="345" r="14" fill="#4ade80" opacity="0.2"/>
+        <text x="200" y="350" text-anchor="middle" fill="#4ade80" font-size="12" font-weight="bold" font-family="system-ui">ACCORD&#201;</text>
+      </g>
+    </svg>
+
+    <script>
+      // Generate tick marks dynamically
+      const svg = document.querySelector('.pitch-svg');
+      const ticksGroup = document.getElementById('ticks');
+      const centerX = 200, centerY = 200, radius = 160;
+      const startAngle = -135, endAngle = 135;
+      const totalArc = endAngle - startAngle;
+      for (let i = 0; i <= 50; i++) {
+        const angle = startAngle + (i / 50) * totalArc;
+        const rad = angle * Math.PI / 180;
+        const isMajor = i % 25 === 0;
+        const isMedium = i % 5 === 0;
+        const innerR = isMajor ? radius - 20 : isMedium ? radius - 14 : radius - 8;
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", centerX + innerR * Math.cos(rad));
+        line.setAttribute("y1", centerY + innerR * Math.sin(rad));
+        line.setAttribute("x2", centerX + radius * Math.cos(rad));
+        line.setAttribute("y2", centerY + radius * Math.sin(rad));
+        const dist = Math.abs((i/50) - 0.5) * 2;
+        let color = '#2a2a3a';
+        if (dist < 0.08) color = '#4ade80';
+        else if (dist < 0.2) color = '#2a2a1a';
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", isMajor ? "3" : isMedium ? "2" : "1");
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("opacity", isMajor ? "1" : isMedium ? "0.7" : "0.4");
+        ticksGroup.appendChild(line);
+      }
+    </script>
+  </div>
+
+  <!-- Guitar Headstock -->
+  <div class="headstock-container">
+    <svg viewBox="0 0 320 520" class="headstock-svg">
+      <defs>
+        <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#3a2a1a"/><stop offset="30%" stop-color="#2a1c0e"/>
+          <stop offset="70%" stop-color="#1e1208"/><stop offset="100%" stop-color="#2a1c0e"/>
+        </linearGradient>
+        <linearGradient id="neckGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#4a3520"/><stop offset="50%" stop-color="#3a2815"/>
+          <stop offset="100%" stop-color="#4a3520"/>
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/>
+        </filter>
+        <radialGradient id="pegGrad" cx="50%" cy="40%">
+          <stop offset="0%" stop-color="#f5f0e0"/><stop offset="40%" stop-color="#e8dfc5"/>
+          <stop offset="100%" stop-color="#c4b896"/>
+        </radialGradient>
+        <radialGradient id="pegGradActive" cx="50%" cy="40%">
+          <stop offset="0%" stop-color="#80ffaa"/><stop offset="40%" stop-color="#4ade80"/>
+          <stop offset="100%" stop-color="#22c55e"/>
+        </radialGradient>
+        <radialGradient id="pegGradDetected" cx="50%" cy="40%">
+          <stop offset="0%" stop-color="#fde68a"/><stop offset="40%" stop-color="#fbbf24"/>
+          <stop offset="100%" stop-color="#d97706"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Headstock body -->
+      <path d="M 100,500 L 100,440 C 100,400 90,350 75,300 C 55,230 50,180 55,130 C 58,90 70,60 100,40 C 120,28 140,22 160,20 C 180,22 200,28 220,40 C 250,60 262,90 265,130 C 270,180 265,230 245,300 C 230,350 220,400 220,440 L 220,500 Z" fill="url(#headGrad)" filter="url(#shadow)" stroke="#1a0e05" stroke-width="1.5"/>
+
+      <!-- Wood grain -->
+      <path d="M 115,480 C 110,350 105,200 115,50" fill="none" stroke="#4a3520" stroke-width="0.5" opacity="0.3"/>
+      <path d="M 135,480 C 130,350 123,200 130,50" fill="none" stroke="#4a3520" stroke-width="0.5" opacity="0.3"/>
+      <path d="M 155,480 C 150,350 141,200 145,50" fill="none" stroke="#4a3520" stroke-width="0.5" opacity="0.3"/>
+      <path d="M 175,480 C 170,350 159,200 160,50" fill="none" stroke="#4a3520" stroke-width="0.5" opacity="0.3"/>
+      <path d="M 195,480 C 190,350 177,200 175,50" fill="none" stroke="#4a3520" stroke-width="0.5" opacity="0.3"/>
+
+      <!-- Neck -->
+      <rect x="108" y="440" width="104" height="80" rx="2" fill="url(#neckGrad)" stroke="#1a0e05" stroke-width="1"/>
+      <!-- Nut -->
+      <rect x="106" y="435" width="108" height="10" rx="2" fill="#f5f0e0" opacity="0.9"/>
+
+      <!-- String slots -->
+      <rect x="120" y="436" width="2" height="8" rx="1" fill="#8a7a60" opacity="0.6"/>
+      <rect x="136" y="436" width="2" height="8" rx="1" fill="#8a7a60" opacity="0.6"/>
+      <rect x="152" y="436" width="2" height="8" rx="1" fill="#8a7a60" opacity="0.6"/>
+      <rect x="168" y="436" width="2" height="8" rx="1" fill="#8a7a60" opacity="0.6"/>
+      <rect x="184" y="436" width="2" height="8" rx="1" fill="#8a7a60" opacity="0.6"/>
+      <rect x="200" y="436" width="2" height="8" rx="1" fill="#8a7a60" opacity="0.6"/>
+
+      <!-- Strings down neck -->
+      <line x1="121" y1="445" x2="121" y2="520" stroke="#c4b896" stroke-width="2.7" opacity="0.8"/>
+      <line x1="137" y1="445" x2="137" y2="520" stroke="#c4b896" stroke-width="2.4" opacity="0.8"/>
+      <line x1="153" y1="445" x2="153" y2="520" stroke="#4ade80" stroke-width="2.1" opacity="0.8"/>
+      <line x1="169" y1="445" x2="169" y2="520" stroke="#c4b896" stroke-width="1.8" opacity="0.8"/>
+      <line x1="185" y1="445" x2="185" y2="520" stroke="#c4b896" stroke-width="1.5" opacity="0.8"/>
+      <line x1="201" y1="445" x2="201" y2="520" stroke="#c4b896" stroke-width="1.2" opacity="0.8"/>
+
+      <!-- Brand -->
+      <text x="160" y="175" text-anchor="middle" fill="#8a7a60" font-size="14" font-family="Georgia,serif" font-weight="bold" opacity="0.6" letter-spacing="3">FOLK</text>
+      <text x="160" y="195" text-anchor="middle" fill="#6a5a40" font-size="9" font-family="Georgia,serif" opacity="0.4" letter-spacing="5">TUNER</text>
+
+      <!-- LEFT PEGS (E2, A2, D3) -->
+      <!-- E2 - string 6 -->
+      <g class="peg-group">
+        <line x1="72" y1="240" x2="121" y2="440" stroke="#c4b896" stroke-width="2.7" opacity="0.7"/>
+        <rect x="30" y="234" width="45" height="12" rx="3" fill="#8a7a60" opacity="0.8"/>
+        <ellipse cx="28" cy="240" rx="22" ry="16" fill="url(#pegGrad)" stroke="#a89060" stroke-width="2" class="peg-button"/>
+        <text x="28" y="241" text-anchor="middle" dominant-baseline="middle" fill="#3a2a15" font-size="13" font-weight="bold" font-family="system-ui">E</text>
+        <text x="28" y="253" text-anchor="middle" fill="#6a5a40" font-size="7" font-family="system-ui">2</text>
+      </g>
+      <!-- A2 - string 5 -->
+      <g class="peg-group">
+        <line x1="72" y1="315" x2="137" y2="440" stroke="#c4b896" stroke-width="2.4" opacity="0.7"/>
+        <rect x="30" y="309" width="45" height="12" rx="3" fill="#8a7a60" opacity="0.8"/>
+        <ellipse cx="28" cy="315" rx="22" ry="16" fill="url(#pegGrad)" stroke="#a89060" stroke-width="2" class="peg-button"/>
+        <text x="28" y="316" text-anchor="middle" dominant-baseline="middle" fill="#3a2a15" font-size="13" font-weight="bold" font-family="system-ui">A</text>
+        <text x="28" y="328" text-anchor="middle" fill="#6a5a40" font-size="7" font-family="system-ui">2</text>
+      </g>
+      <!-- D3 - string 4 -->
+      <g class="peg-group">
+        <line x1="72" y1="390" x2="153" y2="440" stroke="#c4b896" stroke-width="2.1" opacity="0.7"/>
+        <rect x="30" y="384" width="45" height="12" rx="3" fill="#8a7a60" opacity="0.8"/>
+        <ellipse cx="28" cy="390" rx="22" ry="16" fill="url(#pegGrad)" stroke="#a89060" stroke-width="2" class="peg-button"/>
+        <text x="28" y="391" text-anchor="middle" dominant-baseline="middle" fill="#3a2a15" font-size="13" font-weight="bold" font-family="system-ui">D</text>
+        <text x="28" y="403" text-anchor="middle" fill="#6a5a40" font-size="7" font-family="system-ui">3</text>
+      </g>
+
+      <!-- RIGHT PEGS (G3, B3, E4) -->
+      <!-- G3 - string 3 (TUNED - green!) -->
+      <g class="peg-group">
+        <line x1="248" y1="240" x2="169" y2="440" stroke="#4ade80" stroke-width="1.8" opacity="0.7"/>
+        <rect x="245" y="234" width="45" height="12" rx="3" fill="#8a7a60" opacity="0.8"/>
+        <ellipse cx="292" cy="240" rx="22" ry="16" fill="url(#pegGradActive)" stroke="#22c55e" stroke-width="2" class="peg-button"/>
+        <text x="292" y="241" text-anchor="middle" dominant-baseline="middle" fill="#052e16" font-size="13" font-weight="bold" font-family="system-ui">G</text>
+        <text x="292" y="253" text-anchor="middle" fill="#166534" font-size="7" font-family="system-ui">3</text>
+        <ellipse cx="292" cy="240" rx="26" ry="20" fill="none" stroke="#4ade80" stroke-width="2" opacity="0.5" class="tuned-glow"/>
+      </g>
+      <!-- B3 - string 2 -->
+      <g class="peg-group">
+        <line x1="248" y1="315" x2="185" y2="440" stroke="#c4b896" stroke-width="1.5" opacity="0.7"/>
+        <rect x="245" y="309" width="45" height="12" rx="3" fill="#8a7a60" opacity="0.8"/>
+        <ellipse cx="292" cy="315" rx="22" ry="16" fill="url(#pegGrad)" stroke="#a89060" stroke-width="2" class="peg-button"/>
+        <text x="292" y="316" text-anchor="middle" dominant-baseline="middle" fill="#3a2a15" font-size="13" font-weight="bold" font-family="system-ui">B</text>
+        <text x="292" y="328" text-anchor="middle" fill="#6a5a40" font-size="7" font-family="system-ui">3</text>
+      </g>
+      <!-- E4 - string 1 -->
+      <g class="peg-group">
+        <line x1="248" y1="390" x2="201" y2="440" stroke="#c4b896" stroke-width="1.2" opacity="0.7"/>
+        <rect x="245" y="384" width="45" height="12" rx="3" fill="#8a7a60" opacity="0.8"/>
+        <ellipse cx="292" cy="390" rx="22" ry="16" fill="url(#pegGrad)" stroke="#a89060" stroke-width="2" class="peg-button"/>
+        <text x="292" y="391" text-anchor="middle" dominant-baseline="middle" fill="#3a2a15" font-size="13" font-weight="bold" font-family="system-ui">E</text>
+        <text x="292" y="403" text-anchor="middle" fill="#6a5a40" font-size="7" font-family="system-ui">4</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- String buttons -->
+  <div class="string-buttons">
+    <button class="string-btn"><span class="string-btn-note">E</span><span class="string-btn-freq">330</span></button>
+    <button class="string-btn"><span class="string-btn-note">B</span><span class="string-btn-freq">247</span></button>
+    <button class="string-btn tuned"><span class="string-btn-note">G</span><span class="string-btn-freq">196</span></button>
+    <button class="string-btn"><span class="string-btn-note">D</span><span class="string-btn-freq">147</span></button>
+    <button class="string-btn"><span class="string-btn-note">A</span><span class="string-btn-freq">110</span></button>
+    <button class="string-btn"><span class="string-btn-note">E</span><span class="string-btn-freq">82</span></button>
+  </div>
+
+  <!-- Control button (listening state) -->
+  <button class="control-btn">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+    <span>Arr&#234;ter</span>
+  </button>
+
+  <!-- Volume bar -->
+  <div class="volume-bar-container">
+    <div class="volume-bar"><div class="volume-fill"></div></div>
+    <span class="volume-label">Signal d&#233;tect&#233;</span>
+  </div>
+
+  <!-- Mode -->
+  <div class="mode-indicator">
+    <div class="mode-dot"></div>
+    <span>Mode Auto</span>
+  </div>
+</div>
+
+</body>
+</html>
