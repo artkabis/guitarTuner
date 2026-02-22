@@ -118,6 +118,18 @@ body {
   50% { box-shadow: 0 4px 30px rgba(239, 68, 68, 0.6); }
 }
 
+/* ===== Error Banner ===== */
+.error-banner {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* ===== Status Line ===== */
 .status-line {
   display: flex;

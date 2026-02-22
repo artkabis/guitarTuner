@@ -33,7 +33,7 @@ export default function GuitarHeadstock({
 
   // Tuning peg positions - left side (strings 6,5,4) and right side (strings 3,2,1)
   const leftPegs = [5, 4, 3]; // E2, A2, D3
-  const rightPegs = [2, 1, 0]; // G3, B3, E4
+  const rightPegs = [0, 1, 2]; // E4, B3, G3 (realistic 3+3 headstock order)
 
   return (
     <div className="headstock-container">

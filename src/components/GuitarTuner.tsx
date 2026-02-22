@@ -6,6 +6,7 @@ export default function GuitarTuner() {
   const {
     pitchData,
     isListening,
+    error,
     selectedString,
     startListening,
     stopListening,
@@ -40,6 +41,13 @@ export default function GuitarTuner() {
           )}
           <span>{isListening ? 'Arrêter' : 'Accorder'}</span>
         </button>
+
+        {/* Error message */}
+        {error && (
+          <div className="error-banner">
+            {error}
+          </div>
+        )}
 
         {/* Status line */}
         <div className="status-line">
