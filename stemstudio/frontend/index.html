@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StemStudio — Séparation audio</title>
+  <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #24243a;
+      --accent: #7c5cfc;
+      --accent2: #c084fc;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --border: #2d2d44;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header .tagline {
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Upload / Record ── */
+    .upload-zone {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124, 92, 252, 0.06);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .upload-zone h2 {
+      font-size: 1.1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .upload-zone p {
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    /* ── Controls row ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      align-items: flex-end;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .control-group label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stem-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .stem-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .stem-chip input[type="checkbox"] { display: none; }
+
+    .stem-chip.checked {
+      border-color: var(--accent);
+      background: rgba(124, 92, 252, 0.15);
+      color: var(--accent2);
+    }
+
+    .stem-chip .icon { font-size: 1rem; }
+
+    select, .quality-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle input { display: none; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--surface2);
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: var(--muted);
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider {
+      background: rgba(124, 92, 252, 0.3);
+      border-color: var(--accent);
+    }
+
+    .toggle input:checked + .toggle-slider::after {
+      transform: translateX(18px);
+      background: var(--accent);
+    }
+
+    /* ── Record button ── */
+    .btn-record {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .btn-record:hover { border-color: var(--red); }
+    .btn-record.recording { border-color: var(--red); background: rgba(239,68,68,0.15); color: var(--red); animation: pulse 1.2s infinite; }
+
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.65; } }
+
+    /* ── Process button ── */
+    .btn-process {
+      width: 100%;
+      margin-top: 1.5rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 600;
+      padding: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-process:hover { opacity: 0.9; }
+    .btn-process:active { transform: scale(0.98); }
+    .btn-process:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Progress ── */
+    .progress-section {
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    .progress-section.visible { display: block; }
+
+    .progress-bar-wrap {
+      background: var(--surface2);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    /* ── Results ── */
+    .results {
+      margin-top: 2rem;
+      display: none;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .results.visible { display: flex; }
+
+    .stem-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .stem-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1.25rem;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stem-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+    }
+
+    .stem-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .btn-icon:hover { border-color: var(--accent); background: rgba(124,92,252,0.1); }
+
+    .waveform-container {
+      padding: 0.75rem 1.25rem;
+      height: 80px;
+      position: relative;
+    }
+
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1.25rem 0.85rem;
+    }
+
+    .volume-row label { font-size: 0.78rem; color: var(--muted); width: 48px; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* ── Notice / alerts ── */
+    .notice {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--amber);
+      margin-top: 1.25rem;
+    }
+
+    .notice a { color: inherit; }
+
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--red);
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* ── File info bar ── */
+    .file-info {
+      display: none;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding: 0.65rem 1rem;
+      background: var(--surface2);
+      border-radius: 8px;
+      font-size: 0.875rem;
+    }
+
+    .file-info.visible { display: flex; }
+    .file-info .fname { font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-info .fsize { color: var(--muted); }
+    .file-info .btn-clear { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; line-height: 1; }
+    .file-info .btn-clear:hover { color: var(--red); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🎚 StemStudio</h1>
+    <p class="tagline">Séparation de stems audio par IA — voix, basse, batterie &amp; plus</p>
+  </div>
+  <span class="badge">htdemucs · DeepFilter</span>
+</header>
+
+<main>
+
+  <!-- Upload zone -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac" />
+    <div class="upload-icon">🎵</div>
+    <h2>Déposez votre fichier audio ici</h2>
+    <p>MP3, WAV, FLAC, OGG, M4A, AAC — max 100 MB</p>
+  </div>
+
+  <!-- File info bar -->
+  <div class="file-info" id="fileInfo">
+    <span class="fname" id="fileName">—</span>
+    <span class="fsize" id="fileSize">—</span>
+    <button class="btn-clear" id="btnClear" title="Supprimer">✕</button>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <!-- Stems -->
+    <div class="control-group">
+      <label>Stems à extraire</label>
+      <div class="stem-checkboxes">
+        <label class="stem-chip checked" id="chip-vocals">
+          <input type="checkbox" value="vocals" checked /> <span class="icon">🎤</span> Voix
+        </label>
+        <label class="stem-chip checked" id="chip-guitar">
+          <input type="checkbox" value="guitar" checked /> <span class="icon">🎸</span> Guitare *
+        </label>
+        <label class="stem-chip checked" id="chip-bass">
+          <input type="checkbox" value="bass" checked /> <span class="icon">🎸</span> Basse
+        </label>
+        <label class="stem-chip checked" id="chip-drums">
+          <input type="checkbox" value="drums" checked /> <span class="icon">🥁</span> Batterie
+        </label>
+      </div>
+    </div>
+
+    <!-- Quality -->
+    <div class="control-group" style="max-width:180px">
+      <label>Qualité</label>
+      <select id="qualitySelect" class="quality-select">
+        <option value="1">⚡ Rapide</option>
+        <option value="2" selected>⚖️ Normal</option>
+        <option value="3">🔬 Haute qualité</option>
+      </select>
+    </div>
+
+    <!-- Voice enhancement -->
+    <div class="control-group" style="max-width:220px">
+      <label>Nettoyage voix (DeepFilter)</label>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="voiceCleanToggle" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span id="voiceCleanLabel" style="font-size:0.85rem;color:var(--muted)">Désactivé</span>
+      </div>
+    </div>
+
+    <!-- Microphone record -->
+    <div class="control-group" style="max-width:180px">
+      <label>Enregistrer</label>
+      <button class="btn-record" id="btnRecord">
+        <span id="recordIcon">⏺</span>
+        <span id="recordLabel">Démarrer</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Guitar note -->
+  <div class="notice">
+    ⚠️ <strong>Note guitare :</strong> Le modèle <em>htdemucs</em> produit 4 stems : voix, basse, batterie et <em>other</em>.
+    La « guitare » correspond au stem <em>other</em> (guitare + synthés + instruments divers) — il n'existe pas de stem guitare isolé dans ce modèle.
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Process button -->
+  <button class="btn-process" id="btnProcess" disabled>
+    ✨ Séparer les stems
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-section" id="progressSection">
+    <div class="progress-label">
+      <span id="progressStatus">Traitement en cours…</span>
+      <span id="progressPct">0 %</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="resultsSection"></div>
+
+</main>
+
+<script>
+// ── Configuration ──────────────────────────────────────────────────────────
+const API_BASE = '__API_BASE__'; // replaced at build time by GitHub Actions
+
+// ── State ──────────────────────────────────────────────────────────────────
+let selectedFile = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let currentJobId = null;
+let pollInterval = null;
+const wavesurfers = {};
+
+// ── Stem metadata ──────────────────────────────────────────────────────────
+const STEM_META = {
+  vocals:  { label: 'Voix',      icon: '🎤', color: '#7c5cfc' },
+  guitar:  { label: 'Guitare *', icon: '🎸', color: '#f59e0b' },
+  bass:    { label: 'Basse',     icon: '🎸', color: '#22c55e' },
+  drums:   { label: 'Batterie',  icon: '🥁', color: '#ef4444' },
+  other:   { label: 'Autre',     icon: '🎹', color: '#64748b' },
+  vocals_enhanced: { label: 'Voix (améliorée)', icon: '✨', color: '#c084fc' },
+};
+
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const uploadZone     = document.getElementById('uploadZone');
+const fileInput      = document.getElementById('fileInput');
+const fileInfo       = document.getElementById('fileInfo');
+const fileName       = document.getElementById('fileName');
+const fileSize       = document.getElementById('fileSize');
+const btnClear       = document.getElementById('btnClear');
+const btnProcess     = document.getElementById('btnProcess');
+const btnRecord      = document.getElementById('btnRecord');
+const recordIcon     = document.getElementById('recordIcon');
+const recordLabel    = document.getElementById('recordLabel');
+const voiceToggle    = document.getElementById('voiceCleanToggle');
+const voiceLabel     = document.getElementById('voiceCleanLabel');
+const qualitySelect  = document.getElementById('qualitySelect');
+const progressSection= document.getElementById('progressSection');
+const progressStatus = document.getElementById('progressStatus');
+const progressPct    = document.getElementById('progressPct');
+const progressBar    = document.getElementById('progressBar');
+const resultsSection = document.getElementById('resultsSection');
+const errorMsg       = document.getElementById('errorMsg');
+
+// ── Drag & drop ────────────────────────────────────────────────────────────
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+function setFile(f) {
+  selectedFile = f;
+  fileName.textContent = f.name;
+  fileSize.textContent = formatBytes(f.size);
+  fileInfo.classList.add('visible');
+  btnProcess.disabled = false;
+  hideError();
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+btnClear.addEventListener('click', clearFile);
+function clearFile() {
+  selectedFile = null;
+  fileInput.value = '';
+  fileInfo.classList.remove('visible');
+  btnProcess.disabled = true;
+}
+
+// ── Stem chip toggles ──────────────────────────────────────────────────────
+document.querySelectorAll('.stem-chip').forEach(chip => {
+  const cb = chip.querySelector('input[type="checkbox"]');
+  chip.addEventListener('click', () => {
+    cb.checked = !cb.checked;
+    chip.classList.toggle('checked', cb.checked);
+  });
+});
+
+function getSelectedStems() {
+  return Array.from(document.querySelectorAll('.stem-chip input:checked')).map(i => i.value);
+}
+
+// ── Voice clean toggle ─────────────────────────────────────────────────────
+voiceToggle.addEventListener('change', () => {
+  voiceLabel.textContent = voiceToggle.checked ? 'Activé' : 'Désactivé';
+});
+
+// ── Mic recording ──────────────────────────────────────────────────────────
+btnRecord.addEventListener('click', toggleRecord);
+
+async function toggleRecord() {
+  if (!isRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const file = new File([blob], `recording_${Date.now()}.webm`, { type: 'audio/webm' });
+        setFile(file);
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      btnRecord.classList.add('recording');
+      recordIcon.textContent = '⏹';
+      recordLabel.textContent = 'Arrêter';
+    } catch (err) {
+      showError('Impossible d\'accéder au microphone : ' + err.message);
+    }
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    btnRecord.classList.remove('recording');
+    recordIcon.textContent = '⏺';
+    recordLabel.textContent = 'Démarrer';
+  }
+}
+
+// ── Process ────────────────────────────────────────────────────────────────
+btnProcess.addEventListener('click', runProcess);
+
+async function runProcess() {
+  if (!selectedFile) return;
+
+  const stems = getSelectedStems();
+  if (stems.length === 0) { showError('Veuillez sélectionner au moins un stem.'); return; }
+
+  const quality = parseInt(qualitySelect.value);
+  const doVoiceClean = voiceToggle.checked;
+
+  hideError();
+  resetResults();
+  showProgress('Envoi du fichier…', 2);
+  btnProcess.disabled = true;
+
+  // 1. POST /separate
+  const form = new FormData();
+  form.append('file', selectedFile);
+  form.append('stems', JSON.stringify(stems));
+  form.append('quality', quality);
+
+  let jobId;
+  try {
+    const res = await fetch(`${API_BASE}/separate`, { method: 'POST', body: form });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    jobId = data.job_id;
+    currentJobId = jobId;
+  } catch (err) {
+    showError('Erreur lors de l\'envoi : ' + err.message);
+    btnProcess.disabled = false;
+    hideProgress();
+    return;
+  }
+
+  showProgress('Séparation en cours (peut prendre 2–5 min)…', 5);
+
+  // 2. Poll /status/{job_id}
+  await pollUntilDone(jobId, async (job) => {
+    // 3. Enhance vocals if requested
+    if (doVoiceClean && job.stems.includes('vocals')) {
+      showProgress('Nettoyage de la voix (DeepFilter)…', 95);
+      try {
+        const enhRes = await fetch(`${API_BASE}/enhance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_id: jobId, denoise: 0.8, reverb: 'none' }),
+        });
+        if (enhRes.ok) {
+          // Give it a moment to process, then show enhanced too
+          await new Promise(r => setTimeout(r, 3000));
+          job.stems.push('vocals_enhanced');
+        }
+      } catch (_) { /* non-blocking */ }
+    }
+
+    showProgress('Terminé !', 100);
+    await new Promise(r => setTimeout(r, 600));
+    hideProgress();
+    renderResults(jobId, job.stems);
+    btnProcess.disabled = false;
+  });
+}
+
+async function pollUntilDone(jobId, onDone) {
+  return new Promise((resolve) => {
+    pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/status/${jobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+
+        showProgress(
+          job.status === 'done' ? 'Finalisation…' : 'Séparation en cours…',
+          job.progress || 0,
+        );
+
+        if (job.status === 'done') {
+          clearInterval(pollInterval);
+          await onDone(job);
+          resolve();
+        } else if (job.status === 'error') {
+          clearInterval(pollInterval);
+          showError('Erreur de traitement : ' + (job.error || 'inconnue'));
+          hideProgress();
+          btnProcess.disabled = false;
+          resolve();
+        }
+      } catch (_) { /* retry next tick */ }
+    }, 2000);
+  });
+}
+
+// ── Results rendering ──────────────────────────────────────────────────────
+function renderResults(jobId, stems) {
+  resultsSection.innerHTML = '';
+  resultsSection.classList.add('visible');
+
+  stems.forEach(stem => {
+    const meta = STEM_META[stem] || { label: stem, icon: '🎵', color: '#64748b' };
+    const card = document.createElement('div');
+    card.className = 'stem-card';
+    card.id = `card-${stem}`;
+    card.innerHTML = `
+      <div class="stem-header">
+        <div class="stem-title">
+          <span>${meta.icon}</span>
+          <span>${meta.label}</span>
+        </div>
+        <div class="stem-actions">
+          <button class="btn-icon" onclick="playStem('${stem}', '${jobId}')" title="Lecture">▶ Lecture</button>
+          <a class="btn-icon" style="text-decoration:none;display:inline-flex;align-items:center;"
+             href="${API_BASE}/download/${jobId}/${stem}"
+             download="${jobId}_${stem}.wav">⬇ Télécharger</a>
+        </div>
+      </div>
+      <div class="waveform-container" id="wave-${stem}"></div>
+      <div class="volume-row">
+        <label>Volume</label>
+        <input type="range" min="0" max="1" step="0.05" value="1"
+               oninput="setVolume('${stem}', this.value)" />
+      </div>
+    `;
+    resultsSection.appendChild(card);
+
+    // Init WaveSurfer
+    const ws = WaveSurfer.create({
+      container: `#wave-${stem}`,
+      waveColor: meta.color,
+      progressColor: meta.color + '88',
+      height: 60,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      url: `${API_BASE}/download/${jobId}/${stem}`,
+    });
+    wavesurfers[stem] = ws;
+  });
+}
+
+function playStem(stem, jobId) {
+  const ws = wavesurfers[stem];
+  if (!ws) return;
+  ws.playPause();
+}
+
+function setVolume(stem, vol) {
+  const ws = wavesurfers[stem];
+  if (ws) ws.setVolume(parseFloat(vol));
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function showProgress(status, pct) {
+  progressSection.classList.add('visible');
+  progressStatus.textContent = status;
+  progressPct.textContent = Math.round(pct) + ' %';
+  progressBar.style.width = pct + '%';
+}
+
+function hideProgress() {
+  progressSection.classList.remove('visible');
+}
+
+function resetResults() {
+  resultsSection.classList.remove('visible');
+  resultsSection.innerHTML = '';
+  Object.values(wavesurfers).forEach(ws => ws.destroy());
+  for (const k in wavesurfers) delete wavesurfers[k];
+}
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  errorMsg.classList.add('visible');
+}
+
+function hideError() {
+  errorMsg.classList.remove('visible');
+  errorMsg.textContent = '';
+}
+</script>
+</body>
+</html>

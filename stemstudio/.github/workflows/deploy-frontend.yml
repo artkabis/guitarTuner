@@ -1,0 +1,41 @@
+name: Deploy Frontend (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'stemstudio/frontend/**'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inject backend API URL into frontend
+        run: |
+          # Replace the __API_BASE__ placeholder with the real backend URL.
+          # Set BACKEND_URL in Settings > Variables > Actions (not Secrets).
+          # Example: https://your-vps.example.com:8000
+          if [ -z "${{ vars.BACKEND_URL }}" ]; then
+            echo "⚠️  WARNING: BACKEND_URL variable is not set."
+            echo "   The frontend will use '__API_BASE__' as the API base — requests will fail."
+            echo "   Go to Settings > Variables > Actions and set BACKEND_URL."
+          else
+            sed -i "s|__API_BASE__|${{ vars.BACKEND_URL }}|g" stemstudio/frontend/index.html
+            echo "✅ API_BASE set to: ${{ vars.BACKEND_URL }}"
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./stemstudio/frontend
+          publish_branch: gh-pages
+          # Commit message shown in the gh-pages branch
+          commit_message: "deploy: frontend ${{ github.sha }}"
