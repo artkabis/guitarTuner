@@ -69,6 +69,7 @@ export function usePitchDetection() {
     volume: -Infinity,
   });
   const [isListening, setIsListening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedString, setSelectedString] = useState<number | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -85,17 +86,18 @@ export function usePitchDetection() {
   const silenceCounterRef = useRef<number>(0);
 
   const startListening = useCallback(async () => {
+    setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          sampleRate: 48000,
         },
       });
 
       const audioContext = new AudioContext({ sampleRate: 48000 });
+      await audioContext.resume();
       const source = audioContext.createMediaStreamSource(stream);
 
       // Lowpass filter to remove high-frequency noise
@@ -135,6 +137,11 @@ export function usePitchDetection() {
       detect();
     } catch (err) {
       console.error('Microphone access denied:', err);
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        setError('Accès au micro refusé. Autorisez le micro dans les paramètres du navigateur.');
+      } else {
+        setError('Impossible d\'accéder au micro. Vérifiez que votre appareil dispose d\'un microphone.');
+      }
     }
   }, []);
 
@@ -287,6 +294,7 @@ export function usePitchDetection() {
   return {
     pitchData,
     isListening,
+    error,
     selectedString,
     startListening,
     stopListening,
